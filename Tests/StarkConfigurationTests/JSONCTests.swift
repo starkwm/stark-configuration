@@ -10,12 +10,15 @@ struct JSONCTests {
       { /* café */ "url": "https://example.com/*path*/", // comment
         "text": "quote: \" // literal", "slash": "\\", "unicode": "日本語", }
       """#
+
     let result = try JSONC.normalized(Data(source.utf8))
     let value = try JSONDecoder().decode([String: String].self, from: result)
+
     #expect(value["url"] == "https://example.com/*path*/")
     #expect(value["text"] == "quote: \" // literal")
     #expect(value["slash"] == "\\")
     #expect(value["unicode"] == "日本語")
+
     #expect(result.count == source.utf8.count)
     #expect(
       Array(result.enumerated().filter { $0.element == 10 }.map(\.offset))
@@ -28,6 +31,7 @@ struct JSONCTests {
     let source = "{\"values\":[1, {\"nested\":[true,],}, /* end */\r\n],}// EOF"
     let normalized = try JSONC.normalized(Data(source.utf8))
     let expected = Data("{\"values\":[1, {\"nested\":[true ] }           \r\n] }      ".utf8)
+
     #expect(normalized == expected)
     _ = try JSONSerialization.jsonObject(with: normalized)
   }
@@ -50,6 +54,7 @@ struct JSONCTests {
   @Test("plain JSON remains unchanged")
   func preservesJSON() throws {
     let data = Data(#"{"schemaVersion":1,"bar":{},"items":{}}"#.utf8)
+
     #expect(try JSONC.normalized(data) == data)
   }
 }
@@ -63,6 +68,7 @@ struct DuplicateKeyTests {
   ])
   func rejectsDuplicates(source: String) throws {
     let data = Data(source.utf8)
+
     #expect(try JSONC.normalized(data) == data)
     #expect(throws: JSONCError.self) {
       try JSONC.normalized(data, rejectingDuplicateKeys: true)

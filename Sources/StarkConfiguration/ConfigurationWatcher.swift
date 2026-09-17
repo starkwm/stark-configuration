@@ -24,6 +24,7 @@ public final class ConfigurationWatcher {
 
   public func stop() {
     isStarted = false
+
     reloadTask?.cancel()
     reloadTask = nil
 
@@ -36,6 +37,7 @@ public final class ConfigurationWatcher {
     sources.removeAll()
 
     var directory = url.deletingLastPathComponent()
+
     while !FileManager.default.fileExists(atPath: directory.path), directory.path != "/" {
       directory.deleteLastPathComponent()
     }
@@ -53,10 +55,12 @@ public final class ConfigurationWatcher {
       eventMask: [.write, .extend, .attrib, .rename, .delete, .revoke],
       queue: .main
     )
+
     source.setEventHandler { [weak self] in
       Task { @MainActor [weak self] in self?.scheduleReload() }
     }
     source.setCancelHandler { close(descriptor) }
+
     sources.append(source)
     source.resume()
   }
@@ -67,6 +71,7 @@ public final class ConfigurationWatcher {
     reloadTask?.cancel()
     reloadTask = Task { [weak self] in
       do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+
       guard let self, self.isStarted else { return }
 
       self.installSources()

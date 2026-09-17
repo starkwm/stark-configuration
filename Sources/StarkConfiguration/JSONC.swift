@@ -13,7 +13,9 @@ public enum JSONC {
   /// Duplicate-key rejection is opt-in. Otherwise the caller's decoder determines JSON validity.
   public static func normalized(_ data: Data, rejectingDuplicateKeys: Bool = false) throws -> Data {
     let json = try stripExtensions(data)
+
     if rejectingDuplicateKeys { try rejectDuplicateKeys(json) }
+
     return json
   }
 
@@ -21,6 +23,7 @@ public enum JSONC {
     let bytes = Array(data)
     var scopes: [Set<String>?] = []
     var index = 0
+
     while index < bytes.count {
       switch bytes[index] {
       case 123: scopes.append([])
@@ -29,17 +32,22 @@ public enum JSONC {
       case 34:
         let start = index
         index += 1
+
         while index < bytes.count {
           if bytes[index] == 92 {
             index += 2
             continue
           }
+
           if bytes[index] == 34 { break }
           index += 1
         }
+
         let end = index + 1
         var next = end
+
         while next < bytes.count, [9, 10, 13, 32].contains(bytes[next]) { next += 1 }
+
         if next < bytes.count, bytes[next] == 58, !scopes.isEmpty {
           let key = try JSONDecoder().decode(String.self, from: Data(bytes[start..<end]))
           let last = scopes.count - 1
@@ -49,6 +57,7 @@ public enum JSONC {
         }
       default: break
       }
+
       index += 1
     }
   }
@@ -63,6 +72,7 @@ public enum JSONC {
 
     while index < bytes.count {
       let byte = bytes[index]
+
       if inString {
         if escaped {
           escaped = false
@@ -71,25 +81,30 @@ public enum JSONC {
         } else if byte == 0x22 {
           inString = false
         }
+
         index += 1
         continue
       }
 
       if byte == 0x2F, index + 1 < bytes.count {
         let next = bytes[index + 1]
+
         if next == 0x2F {
           while index < bytes.count, bytes[index] != 0x0A, bytes[index] != 0x0D {
             bytes[index] = 0x20
             index += 1
           }
+
           continue
         }
+
         if next == 0x2A {
           let start = index
           bytes[index] = 0x20
           bytes[index + 1] = 0x20
           index += 2
           var closed = false
+
           while index < bytes.count {
             if bytes[index] == 0x2A, index + 1 < bytes.count, bytes[index + 1] == 0x2F {
               bytes[index] = 0x20
@@ -98,12 +113,15 @@ public enum JSONC {
               closed = true
               break
             }
+
             if bytes[index] != 0x0A, bytes[index] != 0x0D { bytes[index] = 0x20 }
             index += 1
           }
+
           guard closed else {
             throw JSONCError("Unterminated block comment at byte \(start + 1).")
           }
+
           continue
         }
       }
@@ -118,15 +136,18 @@ public enum JSONC {
         guard let previous, ![0x5B, 0x7B, 0x3A, 0x2C].contains(previous) else {
           throw JSONCError("Unexpected comma at byte \(index + 1).")
         }
+
         trailingComma = index
       } else {
         if byte == 0x5D || byte == 0x7D, let trailingComma {
           bytes[trailingComma] = 0x20
         }
+
         trailingComma = nil
       }
 
       if byte == 0x22 { inString = true }
+
       previous = byte
       index += 1
     }
@@ -138,6 +159,7 @@ public enum JSONC {
 /// A JSONC syntax or duplicate-key diagnostic.
 public struct JSONCError: LocalizedError, Sendable {
   public var errorDescription: String? { message }
+
   private let message: String
 
   init(_ message: String) { self.message = message }
