@@ -4,6 +4,8 @@ Swift utilities for reading JSON with comments and trailing commas, and watching
 
 Requires Swift 6.2 and macOS 26.
 
+See the [documentation](docs/index.md) for the API reference and examples.
+
 ## Usage
 
 Add `https://github.com/starkwm/stark-configuration.git` as a Swift package dependency and link the `StarkConfiguration` product to your target.
