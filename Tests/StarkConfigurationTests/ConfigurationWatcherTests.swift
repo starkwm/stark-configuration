@@ -2,7 +2,7 @@ import Foundation
 import StarkConfiguration
 import Testing
 
-@Suite("ConfigurationWatcher", .serialized)
+@Suite("ConfigurationWatcher")
 @MainActor
 struct ConfigurationWatcherTests {
   @Test func observesWritesReplacementAndRecreation() async throws {
@@ -20,8 +20,9 @@ struct ConfigurationWatcherTests {
       try Data(UUID().uuidString.utf8).write(to: url, options: atomic ? .atomic : [])
       try await waitUntil { changes > before }
     }
+    let beforeDeletion = changes
     try FileManager.default.removeItem(at: url)
-    try await Task.sleep(for: .milliseconds(250))
+    try await waitUntil { changes > beforeDeletion }
     let before = changes
     try Data("recreated".utf8).write(to: url)
     try await waitUntil { changes > before }
