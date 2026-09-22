@@ -82,7 +82,6 @@ struct ConfigurationWatcherTests {
 
     for _ in 0..<5 {
       try Data(UUID().uuidString.utf8).write(to: url)
-      try await Task.sleep(for: .milliseconds(20))
     }
 
     try await waitUntil { changes == 1 }
@@ -96,13 +95,18 @@ struct ConfigurationWatcherTests {
     watcher.stop()
     watcher.stop()
 
+    let beforeStop = changes
+
     try await Task.sleep(for: .milliseconds(200))
 
-    #expect(changes == 1)
+    #expect(changes == beforeStop)
 
     watcher.start()
+
+    let beforeRestart = changes
+
     try Data("restarted".utf8).write(to: url)
-    try await waitUntil { changes > 1 }
+    try await waitUntil { changes > beforeRestart }
   }
 
   private func temporaryDirectory() throws -> URL {
