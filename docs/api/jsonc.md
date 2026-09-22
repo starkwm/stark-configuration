@@ -24,6 +24,7 @@ let source = """
     "theme": "dark",
   }
   """
+
 let json = try JSONC.normalized(
   Data(source.utf8),
   rejectingDuplicateKeys: true
@@ -41,6 +42,7 @@ Keys must be unique within each object. Separate objects can use the same key. T
 
 ```swift
 let data = Data(#"{"theme":"dark","theme":"light"}"#.utf8)
+
 try JSONC.rejectDuplicateKeys(data) // Throws JSONCError.
 ```
 
