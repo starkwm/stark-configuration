@@ -20,6 +20,7 @@ import StarkConfiguration
 
 do {
   let data = Data(#"{"theme":1,"theme":2}"#.utf8)
+
   _ = try JSONC.normalized(data, rejectingDuplicateKeys: true)
 } catch let error as JSONCError {
   print(error.localizedDescription)

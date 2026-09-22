@@ -38,6 +38,7 @@ Create and keep the watcher on the main actor. Use the same file URL and handle 
 let watcher = ConfigurationWatcher(url: url) {
   print("Configuration changed")
 }
+
 watcher.start()
 ```
 
