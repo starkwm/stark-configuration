@@ -5,36 +5,44 @@ import Testing
 @Suite("ConfigurationWatcher")
 @MainActor
 struct ConfigurationWatcherTests {
-  @Test func observesWritesReplacementAndRecreation() async throws {
+  @Test func observesFileChanges() async throws {
     let directory = try temporaryDirectory()
+
     defer { try? FileManager.default.removeItem(at: directory) }
 
     let url = directory.appending(path: "config.json")
+
     try Data("initial".utf8).write(to: url)
 
     var changes = 0
     let watcher = ConfigurationWatcher(url: url) { changes += 1 }
+
     watcher.start()
     watcher.start()
+
     defer { watcher.stop() }
 
     for atomic in [false, true, true] {
       let before = changes
+
       try Data(UUID().uuidString.utf8).write(to: url, options: atomic ? .atomic : [])
       try await waitUntil { changes > before }
     }
 
     let beforeDeletion = changes
+
     try FileManager.default.removeItem(at: url)
     try await waitUntil { changes > beforeDeletion }
 
     let before = changes
+
     try Data("recreated".utf8).write(to: url)
     try await waitUntil { changes > before }
   }
 
-  @Test func observesFirstCreationThroughMissingDirectories() async throws {
+  @Test func observesCreation() async throws {
     let directory = try temporaryDirectory()
+
     defer { try? FileManager.default.removeItem(at: directory) }
 
     let parent = directory.appending(path: "one/two")
@@ -42,27 +50,34 @@ struct ConfigurationWatcherTests {
 
     var changes = 0
     let watcher = ConfigurationWatcher(url: url) { changes += 1 }
+
     watcher.start()
+
     defer { watcher.stop() }
 
     try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
     try await waitUntil { changes > 0 }
 
     let before = changes
+
     try Data("created".utf8).write(to: url)
     try await waitUntil { changes > before }
   }
 
-  @Test func debouncesAndCancelsPendingReloads() async throws {
+  @Test func debouncesAndStops() async throws {
     let directory = try temporaryDirectory()
+
     defer { try? FileManager.default.removeItem(at: directory) }
 
     let url = directory.appending(path: "config.json")
+
     try Data().write(to: url)
 
     var changes = 0
     let watcher = ConfigurationWatcher(url: url) { changes += 1 }
+
     watcher.start()
+
     defer { watcher.stop() }
 
     for _ in 0..<5 {
@@ -72,13 +87,17 @@ struct ConfigurationWatcherTests {
 
     try await waitUntil { changes == 1 }
     try await Task.sleep(for: .milliseconds(200))
+
     #expect(changes == 1)
 
     try Data("pending".utf8).write(to: url)
     try await Task.sleep(for: .milliseconds(20))
+
     watcher.stop()
     watcher.stop()
+
     try await Task.sleep(for: .milliseconds(200))
+
     #expect(changes == 1)
 
     watcher.start()
@@ -88,6 +107,7 @@ struct ConfigurationWatcherTests {
 
   private func temporaryDirectory() throws -> URL {
     let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+
     try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
 
     return url
