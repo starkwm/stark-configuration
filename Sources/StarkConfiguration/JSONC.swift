@@ -2,15 +2,7 @@ import Foundation
 
 /// Normalises JSON with comments and trailing commas without changing byte offsets.
 public enum JSONC {
-  // JSONDecoder otherwise silently accepts duplicate keys. Scan already validated JSON
-  // and decode each key so escaped spellings compare as the same string.
-  /// Validates JSON syntax before rejecting duplicate keys, including escaped spellings.
-  public static func rejectDuplicateKeys(_ data: Data) throws {
-    _ = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
-    try scanDuplicateKeys(data)
-  }
-
-  /// Duplicate-key rejection is opt-in. Otherwise the caller's decoder determines JSON validity.
+  /// Replaces comments and trailing commas with spaces. Optionally validates JSON and rejects duplicate keys.
   public static func normalized(_ data: Data, rejectingDuplicateKeys: Bool = false) throws -> Data {
     let json = try stripExtensions(data)
 
@@ -19,39 +11,45 @@ public enum JSONC {
     return json
   }
 
-  private static func scanDuplicateKeys(_ data: Data) throws {
+  /// Validates JSON and rejects duplicate keys within each object.
+  public static func rejectDuplicateKeys(_ data: Data) throws {
+    _ = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+
     let bytes = Array(data)
-    var scopes: [Set<String>?] = []
+    let decoder = JSONDecoder()
+    var scopes: [Set<String>] = []
     var index = 0
 
     while index < bytes.count {
       switch bytes[index] {
-      case 123: scopes.append([])
-      case 91: scopes.append(nil)
-      case 125, 93: scopes.removeLast()
-      case 34:
+      case 0x7B: scopes.append([])
+      case 0x7D: scopes.removeLast()
+      case 0x22:
         let start = index
         index += 1
 
         while index < bytes.count {
-          if bytes[index] == 92 {
+          if bytes[index] == 0x5C {
             index += 2
             continue
           }
 
-          if bytes[index] == 34 { break }
+          if bytes[index] == 0x22 { break }
+
           index += 1
         }
 
         let end = index + 1
         var next = end
 
-        while next < bytes.count, [9, 10, 13, 32].contains(bytes[next]) { next += 1 }
+        while next < bytes.count, [0x09, 0x0A, 0x0D, 0x20].contains(bytes[next]) { next += 1 }
 
-        if next < bytes.count, bytes[next] == 58, !scopes.isEmpty {
-          let key = try JSONDecoder().decode(String.self, from: Data(bytes[start..<end]))
+        if next < bytes.count, bytes[next] == 0x3A, !scopes.isEmpty {
+          // Decode escapes so different spellings of the same key compare equally.
+          let key = try decoder.decode(String.self, from: Data(bytes[start..<end]))
           let last = scopes.count - 1
-          guard scopes[last]?.insert(key).inserted == true else {
+
+          guard scopes[last].insert(key).inserted else {
             throw JSONCError("Duplicate configuration key: \(key).")
           }
         }
@@ -103,6 +101,7 @@ public enum JSONC {
           bytes[index] = 0x20
           bytes[index + 1] = 0x20
           index += 2
+
           var closed = false
 
           while index < bytes.count {
@@ -115,6 +114,7 @@ public enum JSONC {
             }
 
             if bytes[index] != 0x0A, bytes[index] != 0x0D { bytes[index] = 0x20 }
+
             index += 1
           }
 
