@@ -1,6 +1,6 @@
 import Foundation
 
-/// Watches the file and its nearest existing directory so atomic replacement and first creation both reload.
+/// Watches a configuration file, including replacement and first creation.
 @MainActor
 public final class ConfigurationWatcher {
   private let url: URL
@@ -28,13 +28,11 @@ public final class ConfigurationWatcher {
     reloadTask?.cancel()
     reloadTask = nil
 
-    for source in sources { source.cancel() }
-    sources.removeAll()
+    cancelSources()
   }
 
   private func installSources() {
-    for source in sources { source.cancel() }
-    sources.removeAll()
+    cancelSources()
 
     var directory = url.deletingLastPathComponent()
 
@@ -48,6 +46,7 @@ public final class ConfigurationWatcher {
 
   private func watch(_ target: URL) {
     let descriptor = open(target.path, O_EVTONLY)
+
     guard descriptor >= 0 else { return }
 
     let source = DispatchSource.makeFileSystemObjectSource(
@@ -63,6 +62,12 @@ public final class ConfigurationWatcher {
 
     sources.append(source)
     source.resume()
+  }
+
+  private func cancelSources() {
+    for source in sources { source.cancel() }
+
+    sources.removeAll()
   }
 
   private func scheduleReload() {
