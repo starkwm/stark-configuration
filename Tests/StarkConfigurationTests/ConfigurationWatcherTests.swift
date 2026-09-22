@@ -5,7 +5,8 @@ import Testing
 @Suite("ConfigurationWatcher")
 @MainActor
 struct ConfigurationWatcherTests {
-  @Test func observesFileChanges() async throws {
+  @Test("start: observes file changes, replacement, deletion, and recreation")
+  func observesFileChanges() async throws {
     let directory = try temporaryDirectory()
 
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -40,7 +41,8 @@ struct ConfigurationWatcherTests {
     try await waitUntil { changes > before }
   }
 
-  @Test func observesCreation() async throws {
+  @Test("start: observes creation under a missing parent directory")
+  func observesCreation() async throws {
     let directory = try temporaryDirectory()
 
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -64,7 +66,8 @@ struct ConfigurationWatcherTests {
     try await waitUntil { changes > before }
   }
 
-  @Test func debouncesAndStops() async throws {
+  @Test("start: debounces a burst of file changes")
+  func debouncesChanges() async throws {
     let directory = try temporaryDirectory()
 
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -88,6 +91,24 @@ struct ConfigurationWatcherTests {
     try await Task.sleep(for: .milliseconds(200))
 
     #expect(changes == 1)
+  }
+
+  @Test("stop: cancels pending changes and allows restart")
+  func stopsAndRestarts() async throws {
+    let directory = try temporaryDirectory()
+
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let url = directory.appending(path: "config.json")
+
+    try Data().write(to: url)
+
+    var changes = 0
+    let watcher = ConfigurationWatcher(url: url) { changes += 1 }
+
+    watcher.start()
+
+    defer { watcher.stop() }
 
     try Data("pending".utf8).write(to: url)
     try await Task.sleep(for: .milliseconds(20))

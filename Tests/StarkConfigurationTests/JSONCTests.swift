@@ -4,7 +4,8 @@ import Testing
 
 @Suite("JSONC")
 struct JSONCTests {
-  @Test func preservesStringsAndPositions() throws {
+  @Test("normalized(_:): preserves strings and byte positions")
+  func preservesStringsAndPositions() throws {
     let source = #"""
       { /* café */ "url": "https://example.com/*path*/", // comment
         "text": "quote: \" // literal", "slash": "\\", "unicode": "日本語", }
@@ -25,7 +26,8 @@ struct JSONCTests {
     )
   }
 
-  @Test func stripsTrailingCommas() throws {
+  @Test("normalized(_:): strips trailing commas")
+  func stripsTrailingCommas() throws {
     let source = "{\"values\":[1, {\"nested\":[true,],}, /* end */\r\n],}// EOF"
     let normalized = try JSONC.normalized(Data(source.utf8))
     let expected = Data("{\"values\":[1, {\"nested\":[true ] }           \r\n] }      ".utf8)
@@ -34,6 +36,7 @@ struct JSONCTests {
   }
 
   @Test(
+    "normalized(_:): rejects invalid JSONC",
     arguments: [
       "[,]", "{,}", "[1,,]", "{\"x\":,}", "[1,/* comment */,]",
       "[1/* comment */2]", "/* unfinished", "{} /* unfinished", "[1,] garbage",
@@ -45,38 +48,45 @@ struct JSONCTests {
     }
   }
 
-  @Test func preservesJSON() throws {
+  @Test("normalized(_:): preserves unmodified JSON")
+  func preservesJSON() throws {
     let data = Data(#"{"key":1,"key":2,"object":{},"array":[]}"#.utf8)
 
     #expect(try JSONC.normalized(data) == data)
   }
-}
 
-@Suite("Duplicate keys")
-struct DuplicateKeyTests {
-  @Test(arguments: [
-    #"{"key":1,"key":2}"#,
-    #"{"key":1,"\u006bey":2}"#,
-    #"{"nested":[{"key":1,"key":2}]}"#,
-    #"{"key":[{"key":1}],"key":2}"#,
-  ])
+  @Test(
+    "normalized(_:rejectingDuplicateKeys:): rejects duplicate keys",
+    arguments: [
+      #"{"key":1,"key":2}"#,
+      #"{"key":1,"\u006bey":2}"#,
+      #"{"nested":[{"key":1,"key":2}]}"#,
+      #"{"key":[{"key":1}],"key":2}"#,
+    ]
+  )
   func rejectsDuplicates(source: String) {
     #expect(throws: JSONCError.self) {
       try JSONC.normalized(Data(source.utf8), rejectingDuplicateKeys: true)
     }
   }
 
-  @Test(arguments: [
-    #"[{"key":1},{"key":2}]"#,
-    #"{"key":[{"key":1},[{"key":2}]],"other":{"key":3}}"#,
-    #"{"]":[{"{":"}:\"\\","key":1}],"key":2}"#,
-    "true", "6", "null", #""text""#,
-  ])
+  @Test(
+    "rejectDuplicateKeys(_:): allows keys in separate scopes and JSON fragments",
+    arguments: [
+      #"[{"key":1},{"key":2}]"#,
+      #"{"key":[{"key":1},[{"key":2}]],"other":{"key":3}}"#,
+      #"{"]":[{"{":"}:\"\\","key":1}],"key":2}"#,
+      "true", "6", "null", #""text""#,
+    ]
+  )
   func allowsUniqueKeys(source: String) throws {
     try JSONC.rejectDuplicateKeys(Data(source.utf8))
   }
 
-  @Test(arguments: ["}", "[", #"{"x":}"#, #"{"x":"unfinished}"#, "{} garbage"])
+  @Test(
+    "rejectDuplicateKeys(_:): validates JSON before scanning keys",
+    arguments: ["}", "[", #"{"x":}"#, #"{"x":"unfinished}"#, "{} garbage"]
+  )
   func validatesBeforeScanning(source: String) {
     #expect(throws: (any Error).self) { try JSONC.rejectDuplicateKeys(Data(source.utf8)) }
   }
