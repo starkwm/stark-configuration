@@ -2,7 +2,7 @@
 
 Swift utilities for reading JSON with comments and trailing commas, and watching configuration files for changes.
 
-Requires Swift 6.2 and macOS 26.
+Requires Swift 6.4 or later and macOS 26 or later.
 
 See the [documentation](docs/index.md) for the API reference and examples.
 
